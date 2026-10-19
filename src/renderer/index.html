@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OtoVPN</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Üst Başlık & Kontroller -->
+    <header class="app-header">
+      <div class="drag-region"></div>
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <span class="brand-title">OtoVPN</span>
+      </div>
+
+      <div class="header-actions">
+        <button id="btn-toggle-logs" class="icon-btn" title="Canlı Terminal / Günlükler">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+        </button>
+        <button id="btn-open-settings" class="icon-btn" title="Ayarlar">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Ana Panel -->
+    <main class="main-content">
+      <!-- Durum Kartı -->
+      <section class="status-hero">
+        <div id="beacon-container" class="beacon-circle beacon-red">
+          <div class="beacon-glow"></div>
+          <div class="beacon-inner">
+            <svg id="hero-icon-disconnected" class="hero-status-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+            </svg>
+            <svg id="hero-icon-connecting" class="hero-status-icon hidden" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+            </svg>
+            <svg id="hero-icon-connected" class="hero-status-icon hidden" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <polyline points="9 12 11 14 15 10"></polyline>
+            </svg>
+          </div>
+        </div>
+
+        <div class="status-info">
+          <div class="status-pill-container">
+            <span id="status-pill" class="status-pill pill-red">
+              <span class="pill-dot"></span>
+              <span id="status-text">Bağlantı Kesildi</span>
+            </span>
+          </div>
+
+          <div id="server-badge" class="server-meta">
+            <span class="meta-label">Sunucu:</span>
+            <span id="current-host-display" class="meta-value">Yapılandırılmadı</span>
+          </div>
+
+          <div id="timer-badge" class="timer-badge hidden">
+            <span class="timer-icon">⏱️</span>
+            <span id="timer-text">00:00:00</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2FA Bekleme & Manuel Kod Girişi Kartı (Gerektiğinde görünür) -->
+      <section id="otp-card" class="otp-card hidden">
+        <div class="otp-header">
+          <span class="otp-badge-pulse"></span>
+          <span class="otp-title">2FA Kodu Doğrulanıyor</span>
+        </div>
+        <p class="otp-desc">Mail.app'ten otomatik kod bekleniyor (<span id="otp-timer">90s</span>)... Dilerseniz manuel de girebilirsiniz:</p>
+        <div class="otp-input-group">
+          <input type="text" id="manual-otp-input" placeholder="6 Haneli Kod" maxlength="8" inputmode="numeric" />
+          <button id="btn-submit-otp" class="btn btn-primary btn-sm">Gönder</button>
+        </div>
+      </section>
+
+      <!-- Ana Eylem Butonu -->
+      <section class="action-section">
+        <button id="btn-connect" class="main-action-btn btn-connect">
+          <span class="btn-spinner hidden"></span>
+          <span id="btn-connect-icon" class="btn-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+              <line x1="12" y1="2" x2="12" y2="12"></line>
+            </svg>
+          </span>
+          <span id="btn-connect-label">VPN'e Bağlan</span>
+        </button>
+
+        <button id="btn-cancel" class="cancel-action-btn hidden">
+          İptal Et
+        </button>
+      </section>
+
+      <!-- Hızlı Bilgiler / İpuçları -->
+      <section class="quick-stats">
+        <div class="stat-card">
+          <span class="stat-title">Kullanıcı</span>
+          <span id="display-user" class="stat-val">-</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-title">2FA Modu</span>
+          <span id="display-2fa" class="stat-val">Mail.app Otomatik</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-title">Uyku Koruması</span>
+          <span id="display-sleep" class="stat-val">Caffeinate Aktif</span>
+        </div>
+      </section>
+    </main>
+
+    <!-- Canlı Terminal / Log Çekmecesi -->
+    <section id="terminal-drawer" class="terminal-drawer collapsed">
+      <div class="terminal-header">
+        <div class="terminal-title">
+          <span class="term-dot"></span>
+          <span>Canlı Konsol Çıktısı</span>
+        </div>
+        <div class="terminal-actions">
+          <button id="btn-copy-logs" class="term-btn" title="Kopyala">Kopyala</button>
+          <button id="btn-clear-logs" class="term-btn" title="Temizle">Temizle</button>
+          <button id="btn-close-terminal" class="term-btn" title="Kapat">✕</button>
+        </div>
+      </div>
+      <div id="terminal-body" class="terminal-body">
+        <div class="log-line log-system">Sistem hazır. Bağlanmak için butona tıklayın.</div>
+      </div>
+    </section>
+
+    <!-- Ayarlar Modalı -->
+    <div id="settings-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            VPN & Uygulama Ayarları
+          </h2>
+          <button id="btn-close-settings" class="modal-close-btn" title="Kapat">✕</button>
+        </div>
+
+        <nav class="settings-tabs">
+          <button class="tab-btn active" data-tab="tab-vpn">🌐 VPN</button>
+          <button class="tab-btn" data-tab="tab-system">🔐 Sistem & Sudo</button>
+          <button class="tab-btn" data-tab="tab-2fa">📬 2FA & Mail</button>
+          <button class="tab-btn" data-tab="tab-app">⚙️ Tercihler</button>
+        </nav>
+
+        <div class="modal-body">
+          <!-- TAB 1: VPN Ayarları -->
+          <div id="tab-vpn" class="tab-pane active">
+            <div class="form-group">
+              <label for="cfg-vpnHost">VPN Sunucu Adresi (Host:Port)</label>
+              <input type="text" id="cfg-vpnHost" placeholder="Örn: vpn.sirket.com:10443" />
+            </div>
+
+            <div class="form-group">
+              <label for="cfg-vpnUser">VPN Kullanıcı Adı</label>
+              <input type="text" id="cfg-vpnUser" placeholder="Kullanıcı Adı" />
+            </div>
+
+            <div class="form-group">
+              <label for="cfg-vpnPass">VPN Şifresi</label>
+              <div class="password-wrapper">
+                <input type="password" id="cfg-vpnPass" />
+                <button type="button" class="btn-toggle-pass" data-target="cfg-vpnPass">👁️</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="cfg-vpnCert">Güvenilen Sertifika Hash (SHA256 - Opsiyonel)</label>
+              <input type="text" id="cfg-vpnCert" placeholder="Opsiyonel veya SHA256 sertifika özeti" />
+            </div>
+          </div>
+
+          <!-- TAB 2: Sistem & Sudo -->
+          <div id="tab-system" class="tab-pane">
+            <div class="form-group">
+              <label for="cfg-macPass">Mac Yönetici (Sudo) Şifresi</label>
+              <div class="password-wrapper">
+                <input type="password" id="cfg-macPass" />
+                <button type="button" class="btn-toggle-pass" data-target="cfg-macPass">👁️</button>
+              </div>
+              <small class="form-hint">openfortivpn ağ ayarlarını değiştirmek için root yetkisi gerektirir. Şifreniz sadece bu bilgisayarda yerel olarak saklanır.</small>
+            </div>
+
+            <div class="form-group">
+              <label for="cfg-openfortivpnPath">openfortivpn Program Yolu</label>
+              <div class="input-with-action">
+                <input type="text" id="cfg-openfortivpnPath" placeholder="/opt/homebrew/bin/openfortivpn" />
+                <button type="button" id="btn-test-binary" class="btn btn-secondary btn-sm">Test Et</button>
+              </div>
+              <div id="binary-test-result" class="test-feedback"></div>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label class="switch-label">
+                <input type="checkbox" id="cfg-preventSleep" />
+                <span class="switch-slider"></span>
+                <span class="switch-text">Uykuyu Engelle (Caffeinate -i ile VPN'in uyku modunda kopmasını önle)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- TAB 3: 2FA & Mail.app -->
+          <div id="tab-2fa" class="tab-pane">
+            <div class="form-group checkbox-group">
+              <label class="switch-label">
+                <input type="checkbox" id="cfg-mailCheckEnabled" />
+                <span class="switch-slider"></span>
+                <span class="switch-text">Mail.app'ten 2FA Kodunu Otomatik Yakala</span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label for="cfg-mailSenderKeywords">Gönderen Filtresi (Virgülle ayırın)</label>
+              <input type="text" id="cfg-mailSenderKeywords" placeholder="fortinet, token" />
+              <small class="form-hint">Gelen e-postanın gönderen alanında bu kelimeler aranır.</small>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="cfg-mailTimeout">Maksimum Bekleme (sn)</label>
+                <input type="number" id="cfg-mailTimeout" min="15" max="300" />
+              </div>
+              <div class="form-group flex-1">
+                <label for="cfg-mailPollInterval">Sorgu Aralığı (sn)</label>
+                <input type="number" id="cfg-mailPollInterval" min="1" max="10" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <button type="button" id="btn-test-mail" class="btn btn-secondary btn-full">
+                📬 Mail.app Erişimini Test Et
+              </button>
+              <div id="mail-test-result" class="test-feedback"></div>
+            </div>
+          </div>
+
+          <!-- TAB 4: Uygulama Tercihleri -->
+          <div id="tab-app" class="tab-pane">
+            <div class="form-group checkbox-group">
+              <label class="switch-label">
+                <input type="checkbox" id="cfg-autoConnect" />
+                <span class="switch-slider"></span>
+                <span class="switch-text">Uygulama açıldığında otomatik bağlan</span>
+              </label>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label class="switch-label">
+                <input type="checkbox" id="cfg-autoReconnect" />
+                <span class="switch-slider"></span>
+                <span class="switch-text">Bağlantı beklenmedik şekilde koparsa otomatik yeniden bağlan</span>
+              </label>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label class="switch-label">
+                <input type="checkbox" id="cfg-notificationsEnabled" />
+                <span class="switch-slider"></span>
+                <span class="switch-text">macOS sistem bildirimlerini göster</span>
+              </label>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label class="switch-label">
+                <input type="checkbox" id="cfg-minimizeToTray" />
+                <span class="switch-slider"></span>
+                <span class="switch-text">Pencere kapatıldığında menü çubuğunda (Tray) arka planda çalış</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="btn-reset-defaults" class="btn btn-link">Varsayılanlara Sıfırla</button>
+          <div class="footer-right">
+            <button type="button" id="btn-cancel-settings" class="btn btn-secondary">İptal</button>
+            <button type="button" id="btn-save-settings" class="btn btn-primary">Kaydet</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Bildirimi -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

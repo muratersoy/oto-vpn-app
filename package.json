@@ -1,0 +1,25 @@
+{
+  "name": "oto-vpn",
+  "productName": "OtoVPN",
+  "version": "1.0.0",
+  "description": "OpenFortiVPN Menubar & Controller with Auto-2FA for macOS",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "package": "npx -y @electron/packager . OtoVPN --platform=darwin --arch=arm64 --icon=assets/icon.icns --out=dist --overwrite --prune=true"
+  },
+  "keywords": [
+    "vpn",
+    "openfortivpn",
+    "electron",
+    "menubar",
+    "macos",
+    "fortinet"
+  ],
+  "author": "Murat Ersoy",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.2.0"
+  }
+}

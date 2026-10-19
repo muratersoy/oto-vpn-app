@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Production builds & packaged apps
+dist/
+
+# OS generated files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Log files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local configurations / secrets
+.env
+.env.local
+config.json
+*.local
+
+# Temporary files
+/tmp/
+*.tmp
