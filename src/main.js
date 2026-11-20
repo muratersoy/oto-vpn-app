@@ -2,7 +2,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, Notification, nativeImage } = r
 const path = require('path');
 const fs = require('fs');
 const { loadConfig, saveConfig, getDefaults } = require('./config-manager');
-const { VPNManager } = require('./vpn-manager');
+const { VPNManager, parseCertList } = require('./vpn-manager');
 const { testMailAccess } = require('./mail-poller');
 
 let mainWindow = null;
@@ -10,6 +10,9 @@ let tray = null;
 let vpnManager = null;
 let currentConfig = null;
 let isQuitting = false;
+let certRetryCount = 0;
+const MAX_CERT_RETRIES = 2;
+const MAX_TRUSTED_CERTS = 5;
 
 // Global hata yakalama
 process.on('uncaughtException', (err) => {
@@ -92,7 +95,7 @@ function updateTray(statusInfo) {
       label: 'VPN\'e Bağlan',
       enabled: status === 'disconnected' || status === 'error',
       click: () => {
-        handleConnect();
+        handleConnect(true);
       }
     },
     {
@@ -209,7 +212,9 @@ function showWindow() {
   mainWindow.focus();
 }
 
-async function handleConnect() {
+async function handleConnect(userInitiated = false) {
+  // Kullanıcı elle bağlanınca SSL yenileme deneme sayacını sıfırla
+  if (userInitiated) certRetryCount = 0;
   currentConfig = loadConfig();
   const res = await vpnManager.connect(currentConfig);
   return res;
@@ -237,6 +242,7 @@ app.whenReady().then(() => {
     }
 
     if (statusInfo.status === 'connected') {
+      certRetryCount = 0;
       showNotification('OtoVPN Bağlandı 🟢', `Güvenli VPN tüneli kuruldu: ${currentConfig.vpnHost}`);
     } else if (statusInfo.status === 'disconnected') {
       showNotification('OtoVPN Bağlantısı Koptu 🔴', 'VPN tüneli kapandı veya kesildi.');
@@ -254,6 +260,53 @@ app.whenReady().then(() => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('vpn:log', logEntry);
     }
+  });
+
+  // SSL sertifikası değiştiğinde yeni hash'i kaydet ve yeniden bağlan
+  vpnManager.on('cert-changed', ({ newHash, oldHashes }) => {
+    const log = (level, message) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('vpn:log', { level, message });
+      }
+    };
+
+    if (!newHash) {
+      showNotification('OtoVPN SSL Hatası 🔒', 'Sertifika doğrulanamadı ve yeni hash okunamadı. Günlükleri kontrol edin.');
+      return;
+    }
+
+    if (!currentConfig.autoTrustCert) {
+      log('warn', `🔒 Yeni sertifika hash'i: ${newHash}`);
+      log('warn', 'Ayarlar > VPN Sunucu > "Güvenilen Sertifika Hash" alanına ekleyin veya "Sertifikayı otomatik yenile" seçeneğini açın.');
+      showNotification('OtoVPN SSL Sertifikası Değişti 🔒', 'Yeni hash günlüklerde. Ayarlardan onaylayın.');
+      return;
+    }
+
+    if (oldHashes.includes(newHash) || certRetryCount >= MAX_CERT_RETRIES) {
+      const reason = oldHashes.includes(newHash)
+        ? 'yeni hash zaten güvenilenler listesinde'
+        : `deneme sınırı aşıldı (${certRetryCount}/${MAX_CERT_RETRIES})`;
+      log('error', `❌ Sertifika otomatik yenilenemedi: ${reason}. Tekrar denemek için Bağlan'a basın.`);
+      return;
+    }
+
+    certRetryCount++;
+    // Yeni hash'i başa ekle, eskileri (yük dengeleyicili sunucular için) belli sayıda tut
+    const updated = [newHash, ...parseCertList(currentConfig.vpnCert)].slice(0, MAX_TRUSTED_CERTS);
+    const res = saveConfig({ ...currentConfig, vpnCert: updated.join(', ') });
+    if (!res.success) {
+      log('error', `❌ Yeni sertifika kaydedilemedi: ${res.error}`);
+      return;
+    }
+    currentConfig = res.config;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('config:updated', currentConfig);
+    }
+
+    log('success', `🔄 SSL sertifikası otomatik yenilendi: ${newHash}`);
+    log('info', 'Yeniden bağlanılıyor...');
+    showNotification('OtoVPN SSL Sertifikası Yenilendi 🔄', 'Yeni sertifika kaydedildi, yeniden bağlanılıyor...');
+    setTimeout(() => handleConnect(), 1500);
   });
 
   vpnManager.on('tick', (data) => {
@@ -276,7 +329,7 @@ app.whenReady().then(() => {
 
   if (currentConfig.autoConnect) {
     setTimeout(() => {
-      handleConnect();
+      handleConnect(true);
     }, 1500);
   }
 });
@@ -312,7 +365,7 @@ ipcMain.handle('vpn:get-state', () => {
 });
 
 ipcMain.handle('vpn:connect', async () => {
-  return await handleConnect();
+  return await handleConnect(true);
 });
 
 ipcMain.handle('vpn:disconnect', async () => {

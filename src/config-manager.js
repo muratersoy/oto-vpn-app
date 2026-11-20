@@ -20,7 +20,8 @@ const DEFAULT_CONFIG = {
   vpnHost: '',
   vpnUser: '',
   vpnPass: '',
-  vpnCert: '',
+  vpnCert: '', // Virgülle ayrılmış birden fazla SHA256 olabilir
+  autoTrustCert: true, // Sunucu sertifikası değişirse yeni hash'i otomatik kaydet ve yeniden bağlan
   
   // Sistem Yetkileri
   macPass: '',

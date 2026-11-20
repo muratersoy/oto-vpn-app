@@ -187,7 +187,15 @@
 
             <div class="form-group">
               <label for="cfg-vpnCert">Güvenilen Sertifika Hash (SHA256 - Opsiyonel)</label>
-              <input type="text" id="cfg-vpnCert" placeholder="Opsiyonel veya SHA256 sertifika özeti" />
+              <input type="text" id="cfg-vpnCert" placeholder="Opsiyonel; birden fazlaysa virgülle ayırın" />
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label class="switch-label">
+                <input type="checkbox" id="cfg-autoTrustCert" />
+                <span class="switch-slider"></span>
+                <span class="switch-text">SSL sertifikası değişirse otomatik yenile ve yeniden bağlan</span>
+              </label>
             </div>
           </div>
 

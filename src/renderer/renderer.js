@@ -174,6 +174,7 @@ function populateConfigUI(cfg) {
   document.getElementById('cfg-vpnUser').value = cfg.vpnUser || '';
   document.getElementById('cfg-vpnPass').value = cfg.vpnPass || '';
   document.getElementById('cfg-vpnCert').value = cfg.vpnCert || '';
+  document.getElementById('cfg-autoTrustCert').checked = cfg.autoTrustCert !== false;
 
   document.getElementById('cfg-macPass').value = cfg.macPass || '';
   document.getElementById('cfg-openfortivpnPath').value = cfg.openfortivpnPath || '';
@@ -197,6 +198,7 @@ function collectConfigFromUI() {
     vpnUser: document.getElementById('cfg-vpnUser').value.trim(),
     vpnPass: document.getElementById('cfg-vpnPass').value,
     vpnCert: document.getElementById('cfg-vpnCert').value.trim(),
+    autoTrustCert: document.getElementById('cfg-autoTrustCert').checked,
 
     macPass: document.getElementById('cfg-macPass').value,
     openfortivpnPath: document.getElementById('cfg-openfortivpnPath').value.trim(),
@@ -385,6 +387,11 @@ window.api.onOtpWaiting(() => {
 
 window.api.onOtpProgress((prog) => {
   otpTimer.textContent = `${prog.remaining}s`;
+});
+
+// Ana süreç ayarları güncellediğinde (örn. SSL sertifikası otomatik yenilendi)
+window.api.onConfigUpdated((cfg) => {
+  if (cfg) populateConfigUI(cfg);
 });
 
 window.api.onOpenSettings(() => {

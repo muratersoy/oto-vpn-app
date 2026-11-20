@@ -14,6 +14,29 @@ function escapeTcl(val) {
     .replace(/\}/g, '\\}');
 }
 
+// "abc..., def..." gibi virgül/boşlukla ayrılmış SHA256 listesini temizler
+function parseCertList(val) {
+  return Array.from(new Set(
+    String(val || '')
+      .split(/[\s,;]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(s => /^[0-9a-f]{64}$/.test(s))
+  ));
+}
+
+// openfortivpn çıktısından sertifika doğrulama hatasını ve yeni hash'i yakalar
+function detectCertFailure(output) {
+  const idx = output.search(/certificate validation failed/i);
+  if (idx === -1) return null;
+  // Yalnızca hata mesajından SONRASINA bak: öncesindeki "spawn ... --trusted-cert=<eski>"
+  // satırı eski hash'i içerir ve yanlışlıkla yakalanmamalı.
+  const tail = output.slice(idx).replace(/\x1b\[[0-9;]*m/g, '');
+  const m = tail.match(/--trusted-cert\s+([0-9a-f]{64})/i)
+    || tail.match(/trusted-cert\s*=\s*([0-9a-f]{64})/i)
+    || tail.match(/sha256 digest:[\s\S]{0,120}?\b([0-9a-f]{64})\b/i);
+  return { hash: m ? m[1].toLowerCase() : null };
+}
+
 function generatePollScript(keywords, maxWait) {
   const kwList = (keywords || 'fortinet')
     .split(',')
@@ -179,6 +202,7 @@ class VPNManager extends EventEmitter {
     }
 
     this.activeConfig = config;
+    this.userDisconnecting = false;
     this.setStatus('connecting');
     this.emit('log', { level: 'info', message: '🚀 VPN bağlantı süreci başlatılıyor...' });
 
@@ -215,9 +239,11 @@ class VPNManager extends EventEmitter {
 
     const startEpoch = Math.floor(Date.now() / 1000 - 10);
     const maxWait = config.mailTimeout || 90;
-    const certArg = (config.vpnCert && config.vpnCert.trim())
-      ? `--trusted-cert=${escapeTcl(config.vpnCert.trim())}`
-      : '';
+    // Birden fazla güvenilen sertifika desteklenir (her biri ayrı --trusted-cert argümanı)
+    const certArgs = parseCertList(config.vpnCert)
+      .map(h => `--trusted-cert=${h}`)
+      .join(' ');
+    this.recentOutput = '';
 
     // Expect script içeriğini oluştur
     const expScript = `#!/usr/bin/expect -f
@@ -226,7 +252,7 @@ set timeout -1
 set vpn_host {${escapeTcl(config.vpnHost)}}
 set vpn_user {${escapeTcl(config.vpnUser)}}
 set vpn_pass {${escapeTcl(config.vpnPass)}}
-set cert_arg {${certArg}}
+set cert_args [list ${certArgs}]
 set mac_pass {${escapeTcl(config.macPass)}}
 set openfortivpn_bin {${escapeTcl(binPath)}}
 set poll_script {${escapeTcl(POLL_MAIL_SCRIPT)}}
@@ -235,7 +261,7 @@ set max_wait {${maxWait}}
 
 send_user "\\n===STATUS:STARTING===\\n"
 
-spawn sudo -S $openfortivpn_bin $vpn_host --username=$vpn_user --password=$vpn_pass $cert_arg
+spawn sudo -S $openfortivpn_bin $vpn_host --username=$vpn_user --password=$vpn_pass {*}$cert_args
 
 expect {
     -re "(?i)(password for|şifre|password:)" {
@@ -330,6 +356,23 @@ expect {
     this.process.on('close', (code) => {
       this.emit('log', { level: 'info', message: `VPN süreci kapandı (Çıkış kodu: ${code})` });
       this.process = null;
+
+      // SSL sertifikası değişmiş mi? (openfortivpn doğrulama hatasıyla çıktıysa)
+      const certFailure = detectCertFailure(this.recentOutput || '');
+      this.recentOutput = '';
+      if (certFailure && !this.userDisconnecting) {
+        const msg = certFailure.hash
+          ? 'VPN sunucusunun SSL sertifikası değişmiş.'
+          : 'SSL sertifika doğrulaması başarısız (yeni hash okunamadı).';
+        this.emit('log', { level: 'error', message: `🔒 ${msg}` });
+        this.setStatus('error', msg);
+        this.emit('cert-changed', {
+          newHash: certFailure.hash,
+          oldHashes: parseCertList(this.activeConfig?.vpnCert)
+        });
+        return;
+      }
+
       if (this.status !== 'disconnected') {
         this.setStatus('disconnected');
       }
@@ -339,6 +382,8 @@ expect {
   }
 
   handleProcessOutput(text, isStderr = false) {
+    // Parçalı gelen çıktılarda hash bölünmesin diye son çıktıyı tamponda tut
+    this.recentOutput = ((this.recentOutput || '') + text).slice(-16384);
     const lines = text.split('\n');
 
     for (const rawLine of lines) {
@@ -378,6 +423,9 @@ expect {
       }
 
       if (line.includes('===STATUS:GATEWAY_CLOSED===') || line.includes('Closed connection to gateway')) {
+        // SSL hatasıyla kapandıysa durumu 'close' işleyicisine bırak
+        // (aksi halde otomatik yeniden bağlan eski sertifikayla döngüye girer)
+        if (detectCertFailure(this.recentOutput || '')) continue;
         this.emit('log', { level: 'warn', message: '⚠️ Ağ geçidi bağlantısı kapattı.' });
         this.setStatus('disconnected');
         continue;
@@ -388,7 +436,13 @@ expect {
       }
 
       const level = isStderr ? 'warn' : 'info';
-      this.emit('log', { level, message: line });
+      // Şifreyi ve terminal renk kodlarını günlükte gösterme
+      const clean = line
+        .replace(/\x1b\[[0-9;]*m|\[[0-9;]*m/g, '')
+        .replace(/--password=\S+/g, '--password=********')
+        .trim();
+      if (!clean) continue;
+      this.emit('log', { level, message: clean });
     }
   }
 
@@ -397,6 +451,7 @@ expect {
       return { success: true };
     }
 
+    this.userDisconnecting = true;
     this.setStatus('disconnecting');
     this.emit('log', { level: 'info', message: '🛑 VPN bağlantısı sonlandırılıyor...' });
 
@@ -446,4 +501,4 @@ expect {
   }
 }
 
-module.exports = { VPNManager };
+module.exports = { VPNManager, parseCertList, detectCertFailure };

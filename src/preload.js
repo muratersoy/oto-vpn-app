@@ -50,5 +50,11 @@ contextBridge.exposeInMainWorld('api', {
     const sub = () => callback();
     ipcRenderer.on('open-settings', sub);
     return () => ipcRenderer.removeListener('open-settings', sub);
+  },
+
+  onConfigUpdated: (callback) => {
+    const sub = (event, data) => callback(data);
+    ipcRenderer.on('config:updated', sub);
+    return () => ipcRenderer.removeListener('config:updated', sub);
   }
 });
