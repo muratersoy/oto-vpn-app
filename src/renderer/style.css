@@ -457,6 +457,49 @@ body {
   to { transform: rotate(360deg); }
 }
 
+.action-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.action-row .main-action-btn {
+  flex: 1;
+  min-width: 0;
+}
+
+.stop-action-btn {
+  flex: 0 0 auto;
+  height: 54px;
+  padding: 0 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-red);
+  background: transparent;
+  color: var(--color-red);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stop-action-btn:hover {
+  background: var(--color-red);
+  color: #fff;
+}
+
+.stop-action-btn:active {
+  transform: scale(0.98);
+}
+
+.stop-action-btn.hidden {
+  display: none;
+}
+
 .cancel-action-btn {
   background: transparent;
   border: none;

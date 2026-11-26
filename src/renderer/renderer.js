@@ -20,6 +20,7 @@ const btnConnectIcon = document.getElementById('btn-connect-icon');
 const btnConnectLabel = document.getElementById('btn-connect-label');
 const btnSpinner = btnConnect.querySelector('.btn-spinner');
 const btnCancel = document.getElementById('btn-cancel');
+const btnStop = document.getElementById('btn-stop');
 
 const displayUser = document.getElementById('display-user');
 const display2fa = document.getElementById('display-2fa');
@@ -145,6 +146,10 @@ function updateUI(statusInfo) {
     timerBadge.classList.add('hidden');
     timerText.textContent = '00:00:00';
   }
+
+  // "Kes, Tekrar Bağlanma" butonu: aktif/bağlanırken görünür
+  const showStop = status === 'connected' || status === 'connecting' || status === 'waiting_otp';
+  btnStop.classList.toggle('hidden', !showStop);
 }
 
 // Log Ekleme
@@ -232,6 +237,11 @@ btnConnect.addEventListener('click', async () => {
 
 btnCancel.addEventListener('click', async () => {
   await window.api.disconnect();
+});
+
+btnStop.addEventListener('click', async () => {
+  await window.api.stop();
+  showToast('Bağlantı kesildi. Siz tekrar bağlanana kadar otomatik bağlanma durduruldu.');
 });
 
 btnSubmitOtp.addEventListener('click', async () => {

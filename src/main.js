@@ -11,6 +11,25 @@ let vpnManager = null;
 let currentConfig = null;
 let isQuitting = false;
 let certRetryCount = 0;
+// "Kes, Tekrar Bağlanma" ile true olur; kullanıcı elle bağlanana kadar otomatik bağlanma yapılmaz
+let autoReconnectSuspended = false;
+let reconnectTimer = null;
+
+function scheduleReconnect(delayMs) {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (autoReconnectSuspended || isQuitting) return;
+    handleConnect();
+  }, delayMs);
+}
+
+function cancelScheduledReconnect() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
 const MAX_CERT_RETRIES = 2;
 const MAX_TRUSTED_CERTS = 5;
 
@@ -103,6 +122,13 @@ function updateTray(statusInfo) {
       enabled: status === 'connected' || status === 'connecting' || status === 'waiting_otp',
       click: () => {
         handleDisconnect();
+      }
+    },
+    {
+      label: 'Kes, Tekrar Bağlanma',
+      enabled: status === 'connected' || status === 'connecting' || status === 'waiting_otp',
+      click: () => {
+        handleStop();
       }
     },
     { type: 'separator' },
@@ -214,7 +240,12 @@ function showWindow() {
 
 async function handleConnect(userInitiated = false) {
   // Kullanıcı elle bağlanınca SSL yenileme deneme sayacını sıfırla
-  if (userInitiated) certRetryCount = 0;
+  // ve "Tekrar Bağlanma" duraklatmasını kaldır
+  if (userInitiated) {
+    certRetryCount = 0;
+    autoReconnectSuspended = false;
+  }
+  cancelScheduledReconnect();
   currentConfig = loadConfig();
   const res = await vpnManager.connect(currentConfig);
   return res;
@@ -222,6 +253,21 @@ async function handleConnect(userInitiated = false) {
 
 async function handleDisconnect() {
   const res = await vpnManager.disconnect();
+  return res;
+}
+
+// Bağlantıyı kes ve kullanıcı tekrar "Bağlan"a basana kadar otomatik bağlanmayı durdur
+async function handleStop() {
+  autoReconnectSuspended = true;
+  cancelScheduledReconnect();
+  const res = await vpnManager.disconnect();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('vpn:log', {
+      level: 'warn',
+      message: '⏸️ Otomatik bağlanma durduruldu. Tekrar bağlanmak için "VPN\'e Bağlan"a basın.'
+    });
+  }
+  showNotification('OtoVPN Durduruldu ⏸️', 'Bağlantı kesildi, otomatik bağlanma kapalı.');
   return res;
 }
 
@@ -245,11 +291,13 @@ app.whenReady().then(() => {
       certRetryCount = 0;
       showNotification('OtoVPN Bağlandı 🟢', `Güvenli VPN tüneli kuruldu: ${currentConfig.vpnHost}`);
     } else if (statusInfo.status === 'disconnected') {
+      if (autoReconnectSuspended) return; // Kullanıcı bilerek durdurdu
+
       showNotification('OtoVPN Bağlantısı Koptu 🔴', 'VPN tüneli kapandı veya kesildi.');
       
       if (currentConfig.autoReconnect && !isQuitting) {
         showNotification('OtoVPN', 'Bağlantı koptuğu için otomatik yeniden bağlanılıyor...');
-        setTimeout(() => handleConnect(), 3000);
+        scheduleReconnect(3000);
       }
     } else if (statusInfo.status === 'error') {
       showNotification('OtoVPN Hatası ⚠️', statusInfo.error || 'Bağlantı sırasında bir hata oluştu.');
@@ -306,7 +354,7 @@ app.whenReady().then(() => {
     log('success', `🔄 SSL sertifikası otomatik yenilendi: ${newHash}`);
     log('info', 'Yeniden bağlanılıyor...');
     showNotification('OtoVPN SSL Sertifikası Yenilendi 🔄', 'Yeni sertifika kaydedildi, yeniden bağlanılıyor...');
-    setTimeout(() => handleConnect(), 1500);
+    scheduleReconnect(1500);
   });
 
   vpnManager.on('tick', (data) => {
@@ -370,6 +418,10 @@ ipcMain.handle('vpn:connect', async () => {
 
 ipcMain.handle('vpn:disconnect', async () => {
   return await handleDisconnect();
+});
+
+ipcMain.handle('vpn:stop', async () => {
+  return await handleStop();
 });
 
 ipcMain.handle('vpn:submit-otp', (event, otp) => {

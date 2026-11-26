@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   getState: () => ipcRenderer.invoke('vpn:get-state'),
   connect: () => ipcRenderer.invoke('vpn:connect'),
   disconnect: () => ipcRenderer.invoke('vpn:disconnect'),
+  stop: () => ipcRenderer.invoke('vpn:stop'),
   submitOTP: (otp) => ipcRenderer.invoke('vpn:submit-otp', otp),
   
   getConfig: () => ipcRenderer.invoke('config:get'),
